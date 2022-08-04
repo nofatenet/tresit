@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRESIT</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <script>
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    const grid = document.querySelector(".grid");
+    let squares = Array.from(document.querySelectorAll(".grid div"));
+    const ScoreDOM = document.querySelector("#score");
+    const StartBtnDOM = document.querySelector("#startBtn");
+    const pauseDOM = document.querySelector("#paused");
+
+    const width = 10; // 200/20 ;)
+
+    let nextRandom = 0;
+    let score = 0;
+    let timerId; // null
+    gameRunning = false;
+    const colors = [
+        "#800e23bb",
+        "#09912899",
+        "#084484bb",
+        "#790db799",
+        "#b7970dbb"
+    ]
+
+    // The Pieces:
+    // Every Piece is an Array. With 4 SubArrays, because there are 4 possible rotations.
+    // Using the indexes of the grid.
+
+    const Lpiece = [
+        [1, width+1, width*2+1, 2],
+        [width, width+1, width+2, width*2+2],
+        [1, width+1, width*2+1, width*2],
+        [width, width*2, width*2+1, width*2+2]
+    ];
+
+    const Zpiece = [
+        [0,width,width+1,width*2+1],
+        [width+1, width+2,width*2,width*2+1],
+        [0,width,width+1,width*2+1],
+        [width+1, width+2,width*2,width*2+1]
+    ];
+
+    const Tpiece = [
+        [1,width,width+1,width+2],
+        [1,width+1,width+2,width*2+1],
+        [width,width+1,width+2,width*2+1],
+        [1,width,width+1,width*2+1]
+    ];
+
+    const Opiece = [
+        [0,1,width,width+1],
+        [0,1,width,width+1],
+        [0,1,width,width+1],
+        [0,1,width,width+1]
+    ];
+
+    const Ipiece = [
+        [1,width+1,width*2+1,width*3+1],
+        [width,width+1,width+2,width+3],
+        [1,width+1,width*2+1,width*3+1],
+        [width,width+1,width+2,width+3]
+    ];
+
+    const allPieces = [Lpiece, Zpiece, Tpiece, Opiece, Ipiece];
+
+    let currentPosition = 4;
+    let currentRotation = 0;
+
+    // Select a piece at random (number 0 to 4):
+    let randomPicker = Math.floor(Math.random()*allPieces.length);
+    let current = allPieces[randomPicker][currentRotation];
+
+    //Draw a piece in current rotation:
+    const draw = () => {
+        current.forEach(index => {
+            squares[currentPosition + index].classList.add("piece");
+            squares[currentPosition + index].style.backgroundColor = colors[randomPicker];
+        })
+    };
+
+    draw();
+
+    //Remove a piece:
+    const undraw = () => {
+        current.forEach(index => {
+            squares[currentPosition + index].classList.remove("piece");
+            squares[currentPosition + index].style.backgroundColor = "";
+        })
+    };
+
+    // Assign a function to a keyCode:
+    const control = (e) => {
+        if(e.keyCode === 37) {
+            moveLeft();
+        } else if(e.keyCode === 38) {
+            rotate();
+        } else if(e.keyCode === 39) {
+            moveRight();
+        } else if(e.keyCode === 40) {
+            moveDown();
+        }
+    };
+    document.addEventListener("keyup", control);
+
+    //Need a Tick to make the piece move down every xx time:
+    const moveDown = () => {
+        undraw();
+        currentPosition += width;
+        draw();
+        freeze();
+    };
+
+    // Here is the "Tick" //Now in Start/Stop Button
+    //timerId = setInterval(moveDown, 700);
+
+    //FREEZE piece:
+    const freeze = () => {
+            if(current.some(index => squares[currentPosition + index +width].classList.contains("taken"))) {
+                current.forEach(index => squares[currentPosition + index].classList.add("taken"));
+                
+                // A new piece comes into play:
+                randomPicker = nextRandom;
+                nextRandom = Math.floor(Math.random() * allPieces.length);
+                current = allPieces[randomPicker][currentRotation];
+                currentPosition = 4;
+                draw();
+
+                displayPiecePreview();
+                addScore();
+                gameOver();
+            }
+    };
+
+    //Move LEFT, if not over the grid border or blocked by another piece:
+    const moveLeft = () => {
+        if (gameRunning){
+            undraw();
+            const isAtLeftBorder = current.some(index => (currentPosition + index) % width === 0); // Left side index will always be modulo 0, because it will always be 10, 20, 30...etc
+            if (!isAtLeftBorder) { currentPosition -= 1 };
+            if (current.some(index => squares[currentPosition + index].classList.contains("taken"))) {
+                currentPosition +=1;
+            };
+
+            draw();
+        }
+    };
+
+    //let borderRightTouch;
+
+    //Move RIGHT, if not over the grid border or blocked by another piece:
+    const moveRight = () => {
+        if (gameRunning){
+            undraw();
+            const isAtRightBorder = current.some(index => (currentPosition + index) % width === width - 1 ); // Right side index modulo must be width-1(9, 18 ,27...etc)
+            //borderRightTouch = isAtRightBorder;
+            if (!isAtRightBorder) { currentPosition += 1 };
+            if (current.some(index => squares[currentPosition + index].classList.contains("taken"))) {
+                currentPosition -=1;
+            };
+
+            draw();
+        }
+    };
+
+
+    //Rotate Piece:
+    const rotate = () => {
+        undraw();
+        //if (!borderRightTouch)
+        currentRotation ++;
+        //Do not let it go over length:
+        if(currentRotation === current.length) {
+            currentRotation = 0;
+        };
+        current = allPieces[randomPicker][currentRotation];
+        draw();
+    };
+
+    //Preview the next coming piece in the minigrid:
+    const displaySquares = document.querySelectorAll(".minigrid div");
+    const displayWidth = 4;
+    const displayIndex = 0;
+
+    //the pieces without rotations:
+    const nextPiece = [
+        [1, displayWidth+1, displayWidth*2+1, 2],               //L
+        [0, displayWidth, displayWidth+1, displayWidth*2+1],    //Z
+        [1, displayWidth, displayWidth+1, displayWidth+2],      //T
+        [0, 1, displayWidth, displayWidth+1],                   //O
+        [1, displayWidth+1, displayWidth*2+1, displayWidth*3+1] //I
+    ];
+
+    //display preview of the next piece in minigrid:
+    const displayPiecePreview = () => {
+        displaySquares.forEach(square => {
+            square.classList.remove("piece");
+        });
+        nextPiece[nextRandom].forEach( index => {
+            displaySquares[displayIndex + index].classList.add("piece");
+        });
+    };
+
+    //Start/Stop Button:
+    StartBtnDOM.addEventListener("click", () => {
+        gameRunning = !gameRunning;
+        pause();
+        if(timerId) {
+            clearInterval(timerId);
+            timerId = null;
+        } else {
+            draw();
+            timerId = setInterval(moveDown, 700);
+            nextRandom = Math.floor(Math.random()*allPieces.length);
+            displayPiecePreview();
+        }
+    });
+
+    //Score:
+    const addScore = () => {
+        for (let i = 0; i < 199; i += width) {
+            const row = [i, i+1, i+2, i+3, i+4, i+5, i+6, i+7, i+8,, i+9];
+
+            if(row.every(index => squares[index].classList.contains("taken"))) {
+                score += 10;
+                ScoreDOM.innerHTML = score;
+                row.forEach(index => {
+                    squares[index].classList.remove("taken");
+                    squares[index].classList.remove("piece");
+                    squares[index].style.backgroundColor = "";
+                });
+                const squaresRemoved = squares.splice(i, width);
+                squares = squaresRemoved.concat(squares);
+                squares.forEach(cell => grid.appendChild(cell));
+            }
+        }
+    }
+    //Game Over:
+    const gameOver = () => {
+        if (current.some(index => squares[currentPosition + index].classList.contains("taken"))) {
+            ScoreDOM.innerHTML = score + "// Game Over"
+            clearInterval(timerId);
+        }
+    }
+    //Pause Display:
+    const pause = () => {
+        !gameRunning ? pauseDOM.style.display = "inline" : pauseDOM.style.display = "none";
+    };
+
+});
+
+    </script>
+
+</head>
+<body>
+    <p>We want the most simple Tetris we can have in JS</p>
+    <p>Key LEFT/RIGHT to move Piece || UP to Rotate Piece || DOWN to speed up the falling</p>
+    <button id="startBtn">Start/Stop</button><span id="paused">PAUSED</span>
+
+    <div class="container">
+
+        <div class="grid">
+
+
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+
+            <div class="taken"></div>
+            <div class="taken"></div>
+            <div class="taken"></div>
+            <div class="taken"></div>
+            <div class="taken"></div>
+            <div class="taken"></div>
+            <div class="taken"></div>
+            <div class="taken"></div>
+            <div class="taken"></div>
+            <div class="taken"></div>
+        </div>
+
+        <div class="minigrid">
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+
+            <p>NEXT</p>
+            <p>SCORE: <span id="score">0</span></p>
+
+        </div>
+    </div>
+
+</body>
+</html>
