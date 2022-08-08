@@ -16,12 +16,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const ScoreDOM = document.querySelector("#score");
     const StartBtnDOM = document.querySelector("#startBtn");
     const pauseDOM = document.querySelector("#paused");
+    const diffDOM = document.querySelector("#gameSpeed");
 
     const width = 10; // 200/20 ;)
 
     let nextRandom = 0;
     let score = 0;
     let timerId; // null
+    let gameSpeed = 750;
     gameRunning = false;
     const colors = [
         "#800e23bb",
@@ -136,6 +138,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 displayPiecePreview();
                 addScore();
+                
+                diffLevel();
+                clearInterval(timerId);
+                timerId = setInterval(moveDown, gameSpeed);
+                
                 gameOver();
             }
     };
@@ -218,11 +225,20 @@ document.addEventListener("DOMContentLoaded", () => {
             timerId = null;
         } else {
             draw();
-            timerId = setInterval(moveDown, 700);
+            timerId = setInterval(moveDown, gameSpeed);
             nextRandom = Math.floor(Math.random()*allPieces.length);
             displayPiecePreview();
         }
     });
+    
+    //current difficulty level:
+    const diffLevel = () => {
+        if(score == 60) {
+            gameSpeed = 500;
+        } else if(score == 180) {
+            gameSpeed = 250;
+        }
+    };
 
     //Score:
     const addScore = () => {
@@ -232,6 +248,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if(row.every(index => squares[index].classList.contains("taken"))) {
                 score += 10;
                 ScoreDOM.innerHTML = score;
+                diffDOM.innerHTML = gameSpeed;
                 row.forEach(index => {
                     squares[index].classList.remove("taken");
                     squares[index].classList.remove("piece");
@@ -504,6 +521,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             <p>NEXT</p>
             <p>SCORE: <span id="score">0</span></p>
+            <p>Difficulty: <span id="gameSpeed">700</span>ms</p>
 
         </div>
     </div>
